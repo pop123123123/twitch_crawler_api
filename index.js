@@ -1,44 +1,108 @@
 var express = require('express');
 var rp = require('request-promise');
 var path = require("path");
-var MongoClient = require("mongodb").MongoClient;
+var mongoose = require('mongoose');
 var bodyParser = require("body-parser");
 var cors = require('cors')
 var app = express();
 
-app.use(bodyParser.urlencoded({
-    extended: false
-}));
-app.use(bodyParser.json());
-app.use(cors())
 
+const db_path = 'mongodb://localhost/twitch_channels';
 
 const headers = {
     Accept: 'application/vnd.twitchtv.v5+json',
     'Client-ID': process.env.TWITCH_API
 }
 
+app.use(bodyParser.urlencoded({
+    extended: false
+}));
+app.use(bodyParser.json());
+app.use(cors())
+mongoose.connect(db_path);
+
+// Models definitions
+
+var Schema = mongoose.Schema,
+    ObjectId = Schema.ObjectId;
+
+let ChannelSchema = new Schema({
+    mature: {
+        type: Boolean,
+        default: false
+    },
+    broadcaster_language: {
+        type: String,
+        default: 'en'
+    },
+    display_name: {
+        type: String,
+        default: 'None'
+    },
+    game: {
+        type: String,
+        default: 'None'
+    },
+    language: {
+        type: String,
+        default: 'en'
+    },
+    _id: Number,
+    name: String,
+    logo: String,
+    video_banner: String,
+    profile_banner: String,
+    url: String,
+    views: Number,
+    followers: Number,
+});
+var Channel = mongoose.model('Channel', ChannelSchema);
+
+let PanelSchema = new Schema({
+    _id: Number,
+    display_order: Number,
+    kind: String,
+    html_description: String,
+    user_id: Number,
+    data: {
+        link: String,
+        image: String,
+        title: String
+    },
+    channel: String
+});
+var Panel = mongoose.model('Panel', PanelSchema);
+
 // IO functions
 
 function addStreamerToDb(streamer) {
-    MongoClient.connect("mongodb://localhost/twitch_channels", function(error, db) {
-        if (error) return funcCallback(error);
-
-        db.collection("streamers").insert(streamer, null, function(error, results) {
-            if (error) throw error;
-
-            //console.log("Streamer has been saved");
-        });
+    (new Channel(streamer)).save((err) => {
+        console.log(err);
     });
+    for (let i = 0; i < streamer.panels.length; i++) {
+        (new Panel(streamer.panels[i])).save((err) => {
+            console.log(err);
+        });
+    }
 }
 
 function getStreamerFromDB(name, callback) {
-    MongoClient.connect("mongodb://localhost/twitch_channels", function(error, db) {
-        if (error) return funcCallback(error);
-
-        db.collection("streamers").findOne({
-            name: name
-        }, callback);
+    Channel.findOne({
+        name: name
+    }).lean().exec(function(err, docs) {
+        if (err) return funcCallback(err);
+        if (docs == null) {
+            callback(null)
+        } else {
+            var streamer = docs;
+            Panel.find({
+                channel: streamer.name
+            }).lean().exec(function(err, docs) {
+                if (err) return funcCallback(err);
+                streamer.panels = docs;
+                callback(streamer);
+            });
+        }
     });
 }
 
@@ -70,21 +134,18 @@ function getStreamerFromTwitch(name, callback) {
 // Routing
 
 app.get('/streamers', (req, res) => {
-    MongoClient.connect("mongodb://localhost/twitch_channels", function(error, db) {
-        if (error) return funcCallback(error);
+    Channel.find({}, function(err, docs) {
+        if (err) return funcCallback(err);
+        var streamer = docs;
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(docs);
 
-        db.collection("streamers").find().toArray(function(error, results) {
-            if (error) throw error;
-            res.setHeader('Content-Type', 'text/plain');
-            res.send(results);
-        });
     });
 });
 
 app.get('/streamers/:username', (req, res) => {
     var name = req.params.username;
-    getStreamerFromDB(name, (error, result) => {
-        if (error) throw error;
+    getStreamerFromDB(name, (result) => {
         res.setHeader('Content-Type', 'text/plain');
         if (result != null) {
             res.send(result);
@@ -97,15 +158,13 @@ app.get('/streamers/:username', (req, res) => {
 
 app.post('/streamers', function(req, res) {
     var name = req.body.username;
-    getStreamerFromDB(name, (error, result) => {
-        if (error) throw error;
+    getStreamerFromDB(name, (result) => {
         if (result != null) {
             res.setHeader('Content-Type', 'text/plain');
             res.send(result);
         } else {
             getStreamerFromTwitch(name, (streamer) => {
-                getStreamerFromDB(streamer.name, (error, result) => {
-                    if (error) throw error;
+                getStreamerFromDB(streamer.name, (result) => {
                     if (result != null) {
                         res.setHeader('Content-Type', 'text/plain');
                         res.send(result);
