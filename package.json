@@ -1,0 +1,30 @@
+{
+  "name": "twitch_crawler_api",
+  "version": "1.0.0",
+  "description": "> A Node.js project that acts as a API for channel-informations retrieving.",
+  "main": "index.js",
+  "dependencies": {
+    "body-parser": "^1.16.1",
+    "cors": "^2.8.1",
+    "express": "^4.14.1",
+    "mongodb": "^2.2.22",
+    "path": "^0.12.7",
+    "request": "^2.79.0",
+    "request-promise": "^4.1.1",
+    "vuex": "^2.1.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pop123123123/twitch_crawler_api.git"
+  },
+  "author": "Louis MOUHAT",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pop123123123/twitch_crawler_api/issues"
+  },
+  "homepage": "https://github.com/pop123123123/twitch_crawler_api#readme"
+}
