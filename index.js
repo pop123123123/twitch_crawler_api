@@ -89,20 +89,24 @@ function addStreamerToDb(streamer) {
 function getStreamerFromDB(name, callback) {
     Channel.findOne({
         name: name
-    }).lean().exec(function(err, docs) {
-        if (err) return funcCallback(err);
+    }).lean().exec().then((docs) => {
         if (docs == null) {
             callback(null)
         } else {
             var streamer = docs;
             Panel.find({
                 channel: streamer.name
-            }).lean().exec(function(err, docs) {
-                if (err) return funcCallback(err);
+            }).lean().exec().then((docs) => {
                 streamer.panels = docs;
                 callback(streamer);
+            })
+            .catch(function(err) {
+                console.log(err);
             });
         }
+    })
+    .catch(function(err) {
+        console.log(err);
     });
 }
 
